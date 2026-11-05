@@ -24,7 +24,7 @@ Implementation breakdown for [clr-member-access-callback-design.md](./clr-member
 
 ---
 
-## Task 1 — Registration surface (host API)
+## Task 1 — Registration surface (host API) ✅
 
 **Goal:** Host can register and clear a callback; runtime can ask whether notifications are enabled (for fast-path gating later).
 
@@ -32,26 +32,13 @@ Implementation breakdown for [clr-member-access-callback-design.md](./clr-member
 
 **Deliverables:**
 
-- Public types (names TBD, e.g. in `IronPython.Runtime` or `IronPython.Hosting`):
-  - `ClrMemberAccessKind` — at minimum `Get`, `Set`, `Call`
+- Public types in `IronPython.Runtime` (`ClrMemberAccess.cs`):
+  - `ClrMemberAccessKind` — `Get`, `Set`, `Call`
   - `ClrMemberKind` — `Method`, `Property`, `Field`, `Event`
-  - `ClrMemberAccessEventArgs` or equivalent — declaring type, member identity (`MemberInfo` or typed refs), optional `instance`, optional member name
-  - Delegate type for the callback
-- On **`PythonContext`** (internal listener storage + thread-safety story aligned with `SetTrace` / listener count if needed):
-  - Register / unregister callback (or `event` with documented re-entrancy)
-  - Internal `bool HasClrMemberAccessListener` (or similar) for binders
-- Optional thin wrappers on **`IronPython.Hosting.Python`** to register from `ScriptEngine` / `PythonContext` lookup
-
-**Key files:**
-
-- `Src/IronPython/Runtime/PythonContext.cs`
-- `Src/IronPython/Hosting/Python.cs` (optional)
-- New file(s) for event types, e.g. `Src/IronPython/Runtime/ClrMemberAccess*.cs`
-
-**Acceptance criteria:**
-
-- Unit test (no Python required): register callback, invoke internal dispatch stub manually, assert invoked; unregister, assert not invoked
-- Document: register before running scripts; cached dynamic sites may not rebind
+  - `ClrMemberAccessEventArgs`, `ClrMemberAccessEventHandler`
+- **`PythonContext`:** `SetClrMemberAccessListener`, `HasClrMemberAccessListener`, internal `NotifyClrMemberAccess`
+- **`IronPython.Hosting.Python`:** `SetClrMemberAccessListener` on `ScriptEngine` / `ScriptRuntime`
+- Tests: `IronPythonTest/ClrMemberAccessRegistrationTest.cs`
 
 **Not in scope:** Emitting notifications from real Python/CLR access yet (Task 2).
 
