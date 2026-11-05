@@ -132,27 +132,13 @@ Implementation breakdown for [clr-member-access-callback-design.md](./clr-member
 
 ---
 
-## Task 9 — Invoke-only paths (`BuiltinFunction`, `MetaBuiltinMethodDescriptor`)
+## Task 9 — Invoke-only paths (`BuiltinFunction`, `MetaBuiltinMethodDescriptor`) ✅
 
 **Goal:** Method **Call** always notifies even when Get did not run (e.g. bound method invoked directly).
 
 **Depends on:** Task 3, Task 2
 
-**Deliverables:**
-
-- Audit: `PythonInvokeBinder` → `CallMethod`, `MetaBuiltinMethodDescriptor.InvokeWorker`, `BuiltinFunction.Call*`
-- Add `NotifyClrMemberAccess(..., Call, ...)` where Task 3 `Call` wrap does not run
-- Align with Task 0.2 (Get vs Call semantics)
-
-**Key files:**
-
-- `Src/IronPython/Runtime/Binding/PythonInvokeBinder.cs`
-- `Src/IronPython/Runtime/Binding/MetaBuiltinMethodDescriptor.cs`
-- `Src/IronPython/Runtime/Types/BuiltinFunction.cs`
-
-**Acceptance criteria:**
-
-- `obj.method()` and `obj.method` then `()` produce expected event sequence per Task 0.2
+**Deliverables:** Skip `IFastInvokable` fast invoke when listener on (`PythonInvokeBinder`); `TryNotifyClrMemberAccessForBuiltinFunctionCall` on `BuiltinFunction` runtime `Call*` (skips special-name accessors); tests `ClrMemberAccessInvokeOnlyTest.cs`.
 
 ---
 

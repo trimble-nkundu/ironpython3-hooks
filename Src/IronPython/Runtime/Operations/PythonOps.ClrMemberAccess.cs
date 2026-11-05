@@ -9,7 +9,9 @@ using System.Reflection;
 
 using Microsoft.Scripting;
 using Microsoft.Scripting.Actions;
+using Microsoft.Scripting.Runtime;
 
+using IronPython.Runtime.Binding;
 using IronPython.Runtime.Types;
 
 namespace IronPython.Runtime.Operations {
@@ -151,6 +153,61 @@ namespace IronPython.Runtime.Operations {
             }
 
             NotifyClrMemberAccess(context, accessKind, slot, instance);
+        }
+
+        /// <summary>
+        /// Notifies before a CLR method is invoked via <see cref="BuiltinFunction"/> runtime call paths
+        /// (not already covered by dynamic bind-time notify). Skips special-name accessors used by properties/events.
+        /// </summary>
+        internal static void TryNotifyClrMemberAccessForBuiltinFunctionCall(
+            CodeContext context,
+            BuiltinFunction function,
+            object? instance) {
+
+            if (context == null || function == null) {
+                return;
+            }
+
+            if (!context.LanguageContext.HasClrMemberAccessListener) {
+                return;
+            }
+
+            if (function.Targets.Count != 1) {
+                return;
+            }
+
+            if (function.Targets[0] is not MethodInfo method) {
+                return;
+            }
+
+            if (method.IsSpecialName) {
+                return;
+            }
+
+            if (!ShouldNotifyClrDeclaringType(function.DeclaringType)) {
+                return;
+            }
+
+            object? notifyInstance = instance;
+            if (!function.IsUnbound) {
+                notifyInstance ??= function.BindingSelf;
+            } else if (notifyInstance == function) {
+                notifyInstance = null;
+            }
+
+            NotifyClrMemberAccess(context, ClrMemberAccessKind.Call, method, notifyInstance, function.Name);
+        }
+
+        private static bool ShouldNotifyClrDeclaringType(Type? declaringType) {
+            if (declaringType == null || declaringType == typeof(DynamicNull)) {
+                return false;
+            }
+
+            if (typeof(TypeTracker).IsAssignableFrom(declaringType)) {
+                return false;
+            }
+
+            return !PythonBinder.IsPythonType(declaringType) && !PythonBinder.IsPythonSupportingType(declaringType);
         }
 
         internal static ClrMemberAccessEventArgs CreateClrMemberAccessEventArgs(

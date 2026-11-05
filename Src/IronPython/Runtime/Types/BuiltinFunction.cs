@@ -134,6 +134,8 @@ namespace IronPython.Runtime.Types {
                 callable = this;
             }
 
+            PythonOps.TryNotifyClrMemberAccessForBuiltinFunctionCall(context, this, instance);
+
             return storage.Data.Target(storage.Data, context, callable, args);
         }
 
@@ -144,6 +146,8 @@ namespace IronPython.Runtime.Types {
             if (!GetDescriptor().TryGetValue(context, instance, DynamicHelpers.GetPythonTypeFromType(DeclaringType), out callable)) {
                 callable = this;
             }
+
+            PythonOps.TryNotifyClrMemberAccessForBuiltinFunctionCall(context, this, instance);
 
             return storage.Data.Target(storage.Data, context, callable);
         }
@@ -176,6 +180,8 @@ namespace IronPython.Runtime.Types {
             if (storage.Data == null) {
                 storage.Data = context.LanguageContext.MakeKeywordSplatSite();
             }
+
+            PythonOps.TryNotifyClrMemberAccessForBuiltinFunctionCall(context, this, instance ?? BindingSelf);
 
             if (instance != null) {
                 return storage.Data.Target(storage.Data, context, this, ArrayUtils.Insert(instance, args), keywordArgs);
