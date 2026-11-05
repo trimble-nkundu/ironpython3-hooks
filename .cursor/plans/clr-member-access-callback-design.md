@@ -128,7 +128,7 @@ A small DLR extension (virtual hook on `DefaultBinder`, or passing `MemberTracke
 
 | Gap | Mitigation |
 |-----|------------|
-| Fast get/set delegates | When a listener is registered, skip fast paths in `PythonGetMemberBinder.BindDelegate` / `PythonSetMemberBinder.BindDelegate` (similar to `EnableTracing`), **or** inject notification into `TieredJitPropertyGet` / `FastMethodGet` lambdas |
+| Fast get/set delegates | **Interim (Task 3):** when a listener is registered, `BindDelegate` skips fast paths and uses slow DLR binding + `PythonBinder` notify wrappers. **Task 7:** keep that policy or inject notify into `TieredJitPropertyGet` / `FastMethodGet` (Option B) and re-enable fast paths. |
 | `SlotTryGetValue` / `SlotTrySetValue` | Notify in `PythonOps` when the slot is `ReflectedField` / `ReflectedProperty` / `BuiltinMethodDescriptor` |
 | `ReflectedField.DoSet`, property getters | Notify at start of `TryGetValue` / `TrySetValue` / `CallGetter` for reflected types |
 | Extension methods | `PythonExtensionBinder.GetMember`; same notify when bound |

@@ -175,7 +175,12 @@ namespace IronPython.Runtime.Operations {
             return true;
         }
 
-        private static bool TryGetMemberInfo(MemberTracker tracker, out MemberInfo member, out Type? declaringType) {
+        internal static bool TryGetMemberInfoFromTracker(MemberTracker tracker, out MemberInfo member) {
+            Type? declaringType;
+            return TryGetMemberInfo(tracker, out member, out declaringType);
+        }
+
+        internal static bool TryGetMemberInfo(MemberTracker tracker, out MemberInfo member, out Type? declaringType) {
             member = null!;
             declaringType = tracker.DeclaringType;
 
@@ -186,6 +191,13 @@ namespace IronPython.Runtime.Operations {
                 case MethodTracker mt:
                     member = mt.Method;
                     return true;
+                case MethodGroup mg:
+                    if (mg.Methods.Count == 1) {
+                        member = mg.Methods[0].Method;
+                        return true;
+                    }
+
+                    return false;
                 case EventTracker et:
                     member = et.Event;
                     return true;

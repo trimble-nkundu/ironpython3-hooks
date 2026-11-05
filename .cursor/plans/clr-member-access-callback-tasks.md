@@ -58,7 +58,7 @@ Implementation breakdown for [clr-member-access-callback-design.md](./clr-member
 
 ---
 
-## Task 3 — DLR slow path: `PythonBinder` get / set / call wrapping
+## Task 3 — DLR slow path: `PythonBinder` get / set / call wrapping ✅
 
 **Goal:** When listener is active, slow-path dynamic rules notify before member get, set, or call on CLR objects.
 
@@ -66,22 +66,13 @@ Implementation breakdown for [clr-member-access-callback-design.md](./clr-member
 
 **Deliverables:**
 
-- Override or wrap on **`PythonBinder`** (after `base`):
-  - `GetMember(string, DynamicMetaObject, OverloadResolverFactory, bool, DynamicMetaObject)`
-  - `SetMember(...)` variants used by `PythonSetMemberBinder`
-  - `Call` / `CallMethod` when target resolves to a concrete `MethodBase` (document ambiguous overload case)
-- Expression wrapping: prepend `NotifyClrMemberAccess` to returned `DynamicMetaObject.Expression` (preserve restrictions and value type boxing rules from callers)
-- If member identity is not available from return value alone, spike **Task 4** early
+- `PythonBinder.ClrMemberAccess.cs`: hide `GetMember` / `SetMember` / `Call` / `CallMethod`; prepend `NotifyClrMemberAccess` on success (skip errors, Python types, unmapped members; single-method `MethodGroup` only on get)
+- `PythonGetMemberBinder` / `PythonSetMemberBinder`: skip `BindDelegate` fast paths when listener registered
+- Tests: `IronPythonTest/ClrMemberAccessSlowPathTest.cs` (`ClrMemberAccessProbe`)
 
-**Key files:**
+**Interim (until Task 7):** With a listener registered, get/set **always fall back to slow DLR binding** (fast `BindDelegate` paths are skipped). This guarantees notify coverage but is **not** the long-term performance story — Task 7 will either inject notify into fast delegates or document skipping as permanent policy.
 
-- `Src/IronPython/Runtime/Binding/PythonBinder.cs` (new partial if needed)
-- `Src/DLR/.../DefaultBinder.GetMember.cs`, `SetMember.cs`, `Invoke.cs` (read-only unless Task 4)
-
-**Acceptance criteria:**
-
-- Python script against a simple CLR test type (`IronPythonTest/BinderTest.cs` types): getattr / setattr / method call on **slow** path fires callback with correct `MemberInfo`
-- Listener off → zero callback overhead path (no spurious calls)
+**Note:** Ambiguous overloads on get still skip notify; Task 4 / Task 9 can refine call identity.
 
 ---
 
@@ -157,6 +148,8 @@ Implementation breakdown for [clr-member-access-callback-design.md](./clr-member
 **Goal:** Listener registered ⇒ fast delegates either notify or are skipped so behavior matches slow path.
 
 **Depends on:** Task 1 (`HasClrMemberAccessListener`), Task 2
+
+**Status:** Task 3 already applies **Option A** (force slow bind when listener is on). Task 7 is to **finalize** that choice vs Option B and document the performance tradeoff — not to leave “temporary slow-only” undocumented.
 
 **Deliverables:**
 

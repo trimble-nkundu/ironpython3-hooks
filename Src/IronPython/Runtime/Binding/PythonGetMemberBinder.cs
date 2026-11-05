@@ -76,6 +76,13 @@ namespace IronPython.Runtime.Binding {
         public override T BindDelegate<T>(CallSite<T> site, object[] args) {
             Debug.Assert(args[1].GetType() == typeof(CodeContext));
 
+            if (_context.HasClrMemberAccessListener) {
+                // Interim until Task 7: force slow DLR bind so PythonBinder notify wrappers run.
+                // Task 7 may inject notify into fast delegates instead and remove this early return.
+                PerfTrack.NoteEvent(PerfTrack.Categories.BindingSlow, "GetNoFast ClrMemberAccessListener");
+                return base.BindDelegate<T>(site, args);
+            }
+
             if (args[0] is IFastGettable fastGet) {
                 T res = fastGet.MakeGetBinding<T>(site, this, (CodeContext)args[1], Name);
                 if (res != null) {
