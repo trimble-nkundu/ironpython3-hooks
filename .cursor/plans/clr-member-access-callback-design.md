@@ -93,20 +93,50 @@ Bound CLR methods flow through `PythonInvokeBinder` → `PythonBinder.Call` / `C
 
 ## Recommended design
 
-### 1. Registration surface (host)
+### 1. Registration surface (host) — **v1 API**
 
-Mirror `SetTrace` / listeners on `PythonContext`:
+**Registration**
+
+- `PythonContext.SetClrMemberAccessListener(ClrMemberAccessEventHandler listener)` — pass `null` to unregister
+- `IronPython.Hosting.Python.SetClrMemberAccessListener(ScriptEngine | ScriptRuntime, …)` — hosting extensions
+
+**Types** (`Src/IronPython/Runtime/ClrMemberAccess.cs`)
+
+| Type | Purpose |
+|------|---------|
+| `ClrMemberAccessKind` | `Get`, `Set`, `Call` (Delete deferred) |
+| `ClrMemberKind` | `Method`, `Property`, `Field`, `Event` |
+| `ClrMemberAccessEventArgs` | `AccessKind`, `DeclaringType`, `Member`, `MemberKind`, `Instance`, `MemberName` |
+| `ClrMemberAccessEventHandler` | `void(ClrMemberAccessEventArgs e)` |
+
+**Dispatch**
+
+- `PythonOps.NotifyClrMemberAccess(...)` — stable entry for emitted trees and runtime helpers; no-ops when no listener
+
+**Host guidance**
 
 - Register **before** running scripts when possible.
-- Document that **already-bound dynamic sites stay cached** until those code paths rebind (same class of issue as tracing toggling, but for call sites rather than `FunctionCode`).
+- Already-bound dynamic sites stay cached until rebind (documented on `SetClrMemberAccessListener`; no generation counter in v1).
+- Callback exceptions propagate to the caller (same as trace handlers).
 
-Suggested API shape:
+### Notification deduplication (v1)
 
-- **`ClrMemberAccessKind`:** Get, Set, Call (Delete deferred — see locked decisions).
-- **`ClrMemberKind`:** Method, Property, Field, Event.
-- **Payload:** declaring `Type`, `MemberInfo` (or specific method/property/field), optional `instance`, optional `name` when overload resolution is ambiguous on Call.
+Goal: **one callback per logical Python access**, not one per internal hop.
 
-Keep the callback on **`PythonContext`** (or `IronPython.Hosting.Python`) and dispatch from **`PythonOps`** static helpers so emitted expression trees can call one stable method.
+| Path | Rule |
+|------|------|
+| Slow DLR get/set | Single prepend on `PythonBinder` / `PythonExtensionBinder` after successful bind (`PythonBinder.ClrMemberAccess.cs`) |
+| `ReflectedField` / `ReflectedProperty` / `ReflectedEvent` | Notify inside `TryGetValue` / `TrySetValue` / `DoSet`; **`SlotTry*` wrappers do not notify** (Task 6) |
+| Fast get/set with listener | Skip IronPython fast `BindDelegate` (Task 7 Option A); use slow path above |
+| Extension methods on user types | Force slow get fallback when listener on (Task 8); plain CLR uses extension binder retry in `FallbackWorker` |
+| Property read | **Get** on the `PropertyInfo` only; getter `MethodInfo` invoked via `BuiltinFunction.Call0` is **not** a separate **Call** (`IsSpecialName` skipped in runtime call notify) |
+| Method descriptor vs invoke | **Get** when descriptor retrieved; **Call** when invoked (including invoke-only bound references — Task 9) |
+| Invoke fast path | Skip `IFastInvokable` when listener on; `TryNotifyClrMemberAccessForBuiltinFunctionCall` covers direct `BuiltinFunction.Call*` |
+| Ambiguous overloads | Get may skip notify when tracker is ambiguous `MethodGroup`; Call uses resolved `BindingTarget` when available |
+| Python user types / COM | Out of v1 scope — no notify |
+| Static members via **type object** (`Type.StaticField`) | **Not v1** — `MetaPythonType` binding; use instance access (`obj.StaticField`) or backlog Task 11 |
+
+Integration tests: `IronPythonTest.ClrMemberAccess` namespace (`ClrMemberAccessIntegrationTest`, plus focused tests per task).
 
 ### 2. Primary hook: wrap `PythonBinder` DLR binding methods
 
@@ -129,9 +159,9 @@ A small DLR extension (virtual hook on `DefaultBinder`, or passing `MemberTracke
 | Gap | Mitigation |
 |-----|------------|
 | Fast get/set delegates | **v1 (Task 7, Option A, no DLR change):** when a listener is registered, `PythonGetMemberBinder` / `PythonSetMemberBinder` skip fast `BindDelegate` paths; slow DLR + `PythonBinder` / `Reflected*` notify. **Future (Option B):** inject notify into `TieredJitPropertyGet` / `FastMethodGet` / `FastSlotGet` in IronPython only and re-enable fast paths. |
-| `SlotTryGetValue` / `SlotTrySetValue` | Notify in `PythonOps` when the slot is `ReflectedField` / `ReflectedProperty` / `BuiltinMethodDescriptor` |
-| `ReflectedField.DoSet`, property getters | Notify at start of `TryGetValue` / `TrySetValue` / `CallGetter` for reflected types |
-| Extension methods | `PythonExtensionBinder.GetMember`; same notify when bound |
+| `ReflectedField` / `ReflectedProperty` / `ReflectedEvent` | Notify at slot implementation (`TryGetValue` / `TrySetValue` / `DoSet`); not in `SlotTry*` wrappers (dedupe) |
+| `BuiltinFunction` invoke-only | Task 9: skip fast invoke; runtime `Call*` notify for non–special-name methods |
+| Extension methods | `PythonExtensionBinder` + `FallbackWorker` retry; MetaUserObject extension slots slow-fallback when listener on |
 | COM / `IDynamicMetaObjectProvider` | Separate foreign-object binders unless v1 explicitly scopes to non-COM CLR |
 
 `GetMember(MemberRequestKind, Type, string)` remains useful to **enrich** callbacks during binding; it should not be the **only** hook.
@@ -146,11 +176,12 @@ Be explicit in the API:
 
 ### 5. Tests
 
-Extend patterns in `IronPythonTest/BinderTest.cs` and existing binder/interop tests:
+v1 coverage lives under **`IronPythonTest.ClrMemberAccess`** (C# host + Python snippets):
 
-- Register callback
-- Run short Python against known types (`CNoOverloads`, fields, properties)
-- Assert ordering and member identity
+- `ClrMemberAccessIntegrationTest` — field/property get/set, instance/static method call, register/unregister
+- Task-focused tests: registration, dispatch, slow path, slots, reflected runtime, fast-path policy, extensions, invoke-only
+
+Older pattern: `IronPythonTest/BinderTest.cs` for binder overload scenarios (not required for callback v1).
 
 ---
 

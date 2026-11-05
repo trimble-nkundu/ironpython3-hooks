@@ -142,25 +142,13 @@ Implementation breakdown for [clr-member-access-callback-design.md](./clr-member
 
 ---
 
-## Task 10 — Integration tests and documentation
+## Task 10 — Integration tests and documentation ✅
 
 **Goal:** Regressions caught; host developers know how to use the API.
 
 **Depends on:** Tasks 3, 5–7 minimum for “complete v1”
 
-**Deliverables:**
-
-- Tests in `IronPythonTest` (C# host + Python snippet, or existing test harness):
-  - Field get/set
-  - Property get/set
-  - Instance and static method call
-  - Listener register/unregister
-- Update `.cursor/plans/clr-member-access-callback-design.md` with final API names and dedupe rules
-- Short comment in registration API XML docs referencing plan doc
-
-**Acceptance criteria:**
-
-- All v1 scenarios from design doc covered; CI green after user runs test suite
+**Deliverables:** `ClrMemberAccessIntegrationTest.cs`; design doc v1 API + dedupe rules (incl. static via type object gap); `SetClrMemberAccessListener` / delegate XML pointers to design doc.
 
 ---
 

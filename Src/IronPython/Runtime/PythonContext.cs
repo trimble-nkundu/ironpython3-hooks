@@ -3916,6 +3916,7 @@ namespace IronPython.Runtime {
         /// Pass <c>null</c> to unregister.
         /// </summary>
         /// <remarks>
+        /// See <c>.cursor/plans/clr-member-access-callback-design.md</c> for scope, semantics (Get vs Call), and dedupe rules.
         /// Register before running scripts when possible. Dynamic call sites that were already bound
         /// may continue using cached rules until those code paths bind again.
         /// While a listener is registered, CLR member get/set skips IronPython fast <c>BindDelegate</c> paths

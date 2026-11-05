@@ -74,6 +74,7 @@ namespace IronPython.Runtime {
 
     /// <summary>
     /// Host callback invoked when IronPython accesses a CLR field, property, method, or event.
+    /// Register via <see cref="PythonContext.SetClrMemberAccessListener"/> (see repo design doc under <c>.cursor/plans/clr-member-access-callback-design.md</c>).
     /// </summary>
     public delegate void ClrMemberAccessEventHandler(ClrMemberAccessEventArgs e);
 }
