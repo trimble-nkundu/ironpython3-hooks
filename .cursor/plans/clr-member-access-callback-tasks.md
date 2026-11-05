@@ -94,28 +94,19 @@ Implementation breakdown for [clr-member-access-callback-design.md](./clr-member
 
 **Depends on:** Task 2
 
-**Dedupe with Task 3:** Slow DLR get/set prepends notify on `PythonBinder`; slot notify in `SlotTryGetValue` / `SlotTrySetValue` / `SlotTryGetBoundValue`. Paths usually disjoint; possible double notify if both in one rule — document idempotent hosts.
+**Dedupe with Task 3:** Slow DLR get/set prepends notify on `PythonBinder`; slot dispatch calls `Reflected*`.TryGetValue/TrySetValue (Task 6) which notifies once — **`SlotTry*` does not notify** (avoid double with Task 6).
 
 **Deliverables:** `TryNotifyClrMemberAccessFromSlot`; slot overload includes `BuiltinMethodDescriptor`; tests `ClrMemberAccessSlotPathTest.cs`
 
 ---
 
-## Task 6 — Reflected get/set runtime (non-emitted)
+## Task 6 — Reflected get/set runtime (non-emitted) ✅
 
-**Goal:** Cover `TryGetValue` / `TrySetValue` / `CallGetter` / `DoSet` when binding did not inline access.
+**Goal:** Cover `TryGetValue` / `TrySetValue` / `DoSet` when binding did not inline access.
 
 **Depends on:** Task 2, Task 5 (dedupe strategy)
 
-**Deliverables:**
-
-- Notify at start of successful operations in:
-  - `ReflectedField` (`TryGetValue`, `DoSet` / `TrySetValue`)
-  - `ReflectedProperty` (`CallGetter`, setters)
-- Prefer single choke point if Task 5 already covers all slot entry — only fill gaps
-
-**Acceptance criteria:**
-
-- Scenarios that use reflection fallback (non-public members, generic parameters, etc.) still notify
+**Deliverables:** Notify in `ReflectedField` (`TryGetValue`, `DoSet`), `ReflectedProperty` (`TryGetValue`, `TrySetValue`), `ReflectedEvent` (`TryGetValue`) via `TryNotifyClrMemberAccessFromSlot`; Task 5 `SlotTry*` no longer notifies (single choke point). Tests: `ClrMemberAccessReflectedRuntimeTest.cs`
 
 ---
 
