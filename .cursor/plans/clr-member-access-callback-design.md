@@ -102,8 +102,8 @@ Mirror `SetTrace` / listeners on `PythonContext`:
 
 Suggested API shape:
 
-- **`ClrMemberAccessKind`:** Get, Set, Call (optionally Delete).
-- **`ClrMemberKind`:** Method, Property, Field, Event (if needed).
+- **`ClrMemberAccessKind`:** Get, Set, Call (Delete deferred — see locked decisions).
+- **`ClrMemberKind`:** Method, Property, Field, Event.
 - **Payload:** declaring `Type`, `MemberInfo` (or specific method/property/field), optional `instance`, optional `name` when overload resolution is ambiguous on Call.
 
 Keep the callback on **`PythonContext`** (or `IronPython.Hosting.Python`) and dispatch from **`PythonOps`** static helpers so emitted expression trees can call one stable method.
@@ -154,13 +154,17 @@ Extend patterns in `IronPythonTest/BinderTest.cs` and existing binder/interop te
 
 ---
 
-## Open product decisions
+## Locked product decisions (v1)
 
-Before implementation, decide:
+Recorded for Task 0 — change only via explicit scope revision.
 
-1. **CLR only** vs **Python user types** as well.
-2. Whether **get-of-method** and **call** both fire, or only **call**.
-3. Whether registration mid-run must affect **already-compiled** dynamic sites (implies generation counter or site invalidation vs “register before execute”).
+| # | Decision | v1 choice |
+|---|----------|-----------|
+| 0.1 | Scope | **CLR only** — not Python user types (`MetaUserObject`, etc.) |
+| 0.2 | Method descriptor vs invoke | **Both** — fire **Get** when a bound member is retrieved (including method descriptors), **Call** when invoked |
+| 0.3 | Mid-run registration | **No** — register before execute; already-bound dynamic sites stay cached (document for hosts; no generation counter in v1) |
+| 0.4 | Delete vs Event in model | **Delete** member notifications **deferred** (`ClrMemberAccessKind`: Get, Set, Call only). **`ClrMemberKind` includes Event** (Method, Property, Field, Event). |
+| 0.5 | COM / `IDynamicMetaObjectProvider` | **Out of scope** for v1 |
 
 ---
 

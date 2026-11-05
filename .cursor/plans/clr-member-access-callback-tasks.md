@@ -6,21 +6,21 @@ Implementation breakdown for [clr-member-access-callback-design.md](./clr-member
 
 ---
 
-## Task 0 — Lock product decisions
+## Task 0 — Lock product decisions ✅
 
 **Goal:** Fix v1 scope so later tasks do not rework APIs or semantics.
 
-**Decide and record in the design doc (or here):**
+**Locked (see design doc):**
 
-| # | Question | Default recommendation for v1 |
-|---|----------|-------------------------------|
-| 0.1 | CLR only, or include Python user types? | **CLR only** |
-| 0.2 | Fire on method **Get** (descriptor) and **Call**, or **Call** only? | **Both** (Get when bound member retrieved, Call when invoked) |
-| 0.3 | Must mid-run registration affect already-bound sites? | **No** — register before execute; document cache behavior |
-| 0.4 | Include **Delete** member events? | **Defer** unless host needs it |
-| 0.5 | COM / `IDynamicMetaObjectProvider`? | **Out of scope** for v1 |
+| # | v1 choice |
+|---|-----------|
+| 0.1 | **CLR only** |
+| 0.2 | **Get + Call** for methods |
+| 0.3 | Register before execute; cached sites not invalidated mid-run |
+| 0.4 | **Delete** notifications deferred; **`ClrMemberKind` includes Event** |
+| 0.5 | COM / `IDynamicMetaObjectProvider` out of scope |
 
-**Done when:** Decisions written; no open blockers for Task 1 API shape.
+**Done when:** Decisions written; no open blockers for Task 1 API shape. → [clr-member-access-callback-design.md](./clr-member-access-callback-design.md) **Locked product decisions (v1)**.
 
 ---
 
@@ -34,7 +34,7 @@ Implementation breakdown for [clr-member-access-callback-design.md](./clr-member
 
 - Public types (names TBD, e.g. in `IronPython.Runtime` or `IronPython.Hosting`):
   - `ClrMemberAccessKind` — at minimum `Get`, `Set`, `Call`
-  - `ClrMemberKind` — `Method`, `Property`, `Field` (and `Event` if 0.4 says yes)
+  - `ClrMemberKind` — `Method`, `Property`, `Field`, `Event`
   - `ClrMemberAccessEventArgs` or equivalent — declaring type, member identity (`MemberInfo` or typed refs), optional `instance`, optional member name
   - Delegate type for the callback
 - On **`PythonContext`** (internal listener storage + thread-safety story aligned with `SetTrace` / listener count if needed):
