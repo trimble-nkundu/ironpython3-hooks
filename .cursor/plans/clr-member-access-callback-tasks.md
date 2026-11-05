@@ -1,0 +1,310 @@
+# CLR member access callback — development tasks
+
+Implementation breakdown for [clr-member-access-callback-design.md](./clr-member-access-callback-design.md).
+
+**Suggested order:** complete Task 0 before coding; then Task 1 → 2 → 3, then parallelize 4–8 as needed; Task 9 validates end-to-end; Task 10 is optional follow-up.
+
+---
+
+## Task 0 — Lock product decisions
+
+**Goal:** Fix v1 scope so later tasks do not rework APIs or semantics.
+
+**Decide and record in the design doc (or here):**
+
+| # | Question | Default recommendation for v1 |
+|---|----------|-------------------------------|
+| 0.1 | CLR only, or include Python user types? | **CLR only** |
+| 0.2 | Fire on method **Get** (descriptor) and **Call**, or **Call** only? | **Both** (Get when bound member retrieved, Call when invoked) |
+| 0.3 | Must mid-run registration affect already-bound sites? | **No** — register before execute; document cache behavior |
+| 0.4 | Include **Delete** member events? | **Defer** unless host needs it |
+| 0.5 | COM / `IDynamicMetaObjectProvider`? | **Out of scope** for v1 |
+
+**Done when:** Decisions written; no open blockers for Task 1 API shape.
+
+---
+
+## Task 1 — Registration surface (host API)
+
+**Goal:** Host can register and clear a callback; runtime can ask whether notifications are enabled (for fast-path gating later).
+
+**Depends on:** Task 0
+
+**Deliverables:**
+
+- Public types (names TBD, e.g. in `IronPython.Runtime` or `IronPython.Hosting`):
+  - `ClrMemberAccessKind` — at minimum `Get`, `Set`, `Call`
+  - `ClrMemberKind` — `Method`, `Property`, `Field` (and `Event` if 0.4 says yes)
+  - `ClrMemberAccessEventArgs` or equivalent — declaring type, member identity (`MemberInfo` or typed refs), optional `instance`, optional member name
+  - Delegate type for the callback
+- On **`PythonContext`** (internal listener storage + thread-safety story aligned with `SetTrace` / listener count if needed):
+  - Register / unregister callback (or `event` with documented re-entrancy)
+  - Internal `bool HasClrMemberAccessListener` (or similar) for binders
+- Optional thin wrappers on **`IronPython.Hosting.Python`** to register from `ScriptEngine` / `PythonContext` lookup
+
+**Key files:**
+
+- `Src/IronPython/Runtime/PythonContext.cs`
+- `Src/IronPython/Hosting/Python.cs` (optional)
+- New file(s) for event types, e.g. `Src/IronPython/Runtime/ClrMemberAccess*.cs`
+
+**Acceptance criteria:**
+
+- Unit test (no Python required): register callback, invoke internal dispatch stub manually, assert invoked; unregister, assert not invoked
+- Document: register before running scripts; cached dynamic sites may not rebind
+
+**Not in scope:** Emitting notifications from real Python/CLR access yet (Task 2).
+
+---
+
+## Task 2 — Central dispatch (`PythonOps`)
+
+**Goal:** Single runtime entry point callable from expression trees and reflection paths.
+
+**Depends on:** Task 1
+
+**Deliverables:**
+
+- `PythonOps.NotifyClrMemberAccess(...)` (or overloads) that:
+  - No-ops when no listener registered (fast check)
+  - Builds event args and invokes host callback
+  - Does not throw if callback throws (policy: document — mirror trace behavior or propagate)
+- Helpers to map `MemberInfo` / `MemberTracker` / slot types into `ClrMemberAccessEventArgs`
+
+**Key files:**
+
+- `Src/IronPython/Runtime/Operations/PythonOps.cs`
+- Types from Task 1
+
+**Acceptance criteria:**
+
+- Tests call `NotifyClrMemberAccess` directly with mock listener on `PythonContext`
+
+---
+
+## Task 3 — DLR slow path: `PythonBinder` get / set / call wrapping
+
+**Goal:** When listener is active, slow-path dynamic rules notify before member get, set, or call on CLR objects.
+
+**Depends on:** Task 2
+
+**Deliverables:**
+
+- Override or wrap on **`PythonBinder`** (after `base`):
+  - `GetMember(string, DynamicMetaObject, OverloadResolverFactory, bool, DynamicMetaObject)`
+  - `SetMember(...)` variants used by `PythonSetMemberBinder`
+  - `Call` / `CallMethod` when target resolves to a concrete `MethodBase` (document ambiguous overload case)
+- Expression wrapping: prepend `NotifyClrMemberAccess` to returned `DynamicMetaObject.Expression` (preserve restrictions and value type boxing rules from callers)
+- If member identity is not available from return value alone, spike **Task 4** early
+
+**Key files:**
+
+- `Src/IronPython/Runtime/Binding/PythonBinder.cs` (new partial if needed)
+- `Src/DLR/.../DefaultBinder.GetMember.cs`, `SetMember.cs`, `Invoke.cs` (read-only unless Task 4)
+
+**Acceptance criteria:**
+
+- Python script against a simple CLR test type (`IronPythonTest/BinderTest.cs` types): getattr / setattr / method call on **slow** path fires callback with correct `MemberInfo`
+- Listener off → zero callback overhead path (no spurious calls)
+
+---
+
+## Task 4 — DLR helper: member identity at bind time (optional but recommended)
+
+**Goal:** Avoid guessing member from name string when wrapping expressions.
+
+**Depends on:** Task 3 (can start in parallel once wrapping approach is chosen)
+
+**Deliverables:**
+
+- One of:
+  - Virtual hook on `DefaultBinder` that PythonBinder overrides, **or**
+  - Protected helper that returns `(DynamicMetaObject, MemberTracker)` from get/set bind paths, **or**
+  - Python-specific internal API on `GetMemberInfo` / `SetOrDeleteMemberInfo` pipeline
+- Minimal DLR diff; keep upstream-merge story in mind
+
+**Key files:**
+
+- `Src/DLR/Src/Microsoft.Dynamic/Actions/DefaultBinder.*.cs`
+- `Src/IronPython/Runtime/Binding/PythonBinder.cs`
+
+**Acceptance criteria:**
+
+- Task 3 wrappers receive exact `FieldTracker` / `PropertyTracker` / `MethodBase` for common cases (instance field get/set, property get/set, method call)
+
+---
+
+## Task 5 — Slot path: `SlotTryGetValue` / `SlotTrySetValue`
+
+**Goal:** Reflected members reached via `PythonTypeSlot` and emitted `SlotTry*` calls notify at runtime.
+
+**Depends on:** Task 2
+
+**Deliverables:**
+
+- In `PythonOps.SlotTryGetValue` / `SlotTrySetValue` (and `SlotTryDeleteValue` if Delete in scope): after successful slot dispatch, if slot is `ReflectedField`, `ReflectedProperty`, or relevant descriptor, call `NotifyClrMemberAccess`
+
+**Key files:**
+
+- `Src/IronPython/Runtime/Operations/PythonOps.cs`
+- `Src/IronPython/Runtime/Types/ReflectedField.cs`, `ReflectedProperty.cs`
+
+**Acceptance criteria:**
+
+- Python access that compiles to slot path still fires callback (may overlap Task 3 — ensure no **double** notify; pick one path per access or idempotent host contract)
+
+**Note:** Coordinate with Task 3 to avoid duplicate events for the same operation.
+
+---
+
+## Task 6 — Reflected get/set runtime (non-emitted)
+
+**Goal:** Cover `TryGetValue` / `TrySetValue` / `CallGetter` / `DoSet` when binding did not inline access.
+
+**Depends on:** Task 2, Task 5 (dedupe strategy)
+
+**Deliverables:**
+
+- Notify at start of successful operations in:
+  - `ReflectedField` (`TryGetValue`, `DoSet` / `TrySetValue`)
+  - `ReflectedProperty` (`CallGetter`, setters)
+- Prefer single choke point if Task 5 already covers all slot entry — only fill gaps
+
+**Acceptance criteria:**
+
+- Scenarios that use reflection fallback (non-public members, generic parameters, etc.) still notify
+
+---
+
+## Task 7 — Fast-path policy (`PythonGetMemberBinder` / `PythonSetMemberBinder`)
+
+**Goal:** Listener registered ⇒ fast delegates either notify or are skipped so behavior matches slow path.
+
+**Depends on:** Task 1 (`HasClrMemberAccessListener`), Task 2
+
+**Deliverables:**
+
+- When listener active:
+  - **Option A (simpler):** `BindDelegate` skips fast paths, fall back to slow binding (may re-use Task 3 wrappers), **or**
+  - **Option B (faster):** inject `NotifyClrMemberAccess` into `TieredJitPropertyGet`, `FastMethodGet`, etc.
+- Document performance tradeoff
+
+**Key files:**
+
+- `Src/IronPython/Runtime/Binding/PythonGetMemberBinder.cs`
+- `Src/IronPython/Runtime/Binding/PythonSetMemberBinder.cs`
+
+**Acceptance criteria:**
+
+- With listener on, property get and method get fast paths fire exactly one notification per access (same as slow path tests)
+
+---
+
+## Task 8 — Extension methods
+
+**Goal:** CLR extension method get/call surfaces in callback.
+
+**Depends on:** Task 3 or Task 7
+
+**Deliverables:**
+
+- Hook when `PythonExtensionBinder` / module extension binder resolves member or call (mirror main binder wrapping or shared helper)
+
+**Key files:**
+
+- `Src/IronPython/Runtime/Binding/PythonExtensionBinder.cs`
+- `PythonGetMemberBinder.FallbackWorker` extension fallback
+
+**Acceptance criteria:**
+
+- Test with extension method on a type in `IronPythonTest` (add minimal extension if none exists)
+
+---
+
+## Task 9 — Invoke-only paths (`BuiltinFunction`, `MetaBuiltinMethodDescriptor`)
+
+**Goal:** Method **Call** always notifies even when Get did not run (e.g. bound method invoked directly).
+
+**Depends on:** Task 3, Task 2
+
+**Deliverables:**
+
+- Audit: `PythonInvokeBinder` → `CallMethod`, `MetaBuiltinMethodDescriptor.InvokeWorker`, `BuiltinFunction.Call*`
+- Add `NotifyClrMemberAccess(..., Call, ...)` where Task 3 `Call` wrap does not run
+- Align with Task 0.2 (Get vs Call semantics)
+
+**Key files:**
+
+- `Src/IronPython/Runtime/Binding/PythonInvokeBinder.cs`
+- `Src/IronPython/Runtime/Binding/MetaBuiltinMethodDescriptor.cs`
+- `Src/IronPython/Runtime/Types/BuiltinFunction.cs`
+
+**Acceptance criteria:**
+
+- `obj.method()` and `obj.method` then `()` produce expected event sequence per Task 0.2
+
+---
+
+## Task 10 — Integration tests and documentation
+
+**Goal:** Regressions caught; host developers know how to use the API.
+
+**Depends on:** Tasks 3, 5–7 minimum for “complete v1”
+
+**Deliverables:**
+
+- Tests in `IronPythonTest` (C# host + Python snippet, or existing test harness):
+  - Field get/set
+  - Property get/set
+  - Instance and static method call
+  - Listener register/unregister
+- Update `.cursor/plans/clr-member-access-callback-design.md` with final API names and dedupe rules
+- Short comment in registration API XML docs referencing plan doc
+
+**Acceptance criteria:**
+
+- All v1 scenarios from design doc covered; CI green after user runs test suite
+
+---
+
+## Task 11 — Future / out of v1 (backlog)
+
+| Item | Notes |
+|------|--------|
+| COM / `IDynamicMetaObjectProvider` | Separate binders |
+| Python user types (`MetaUserObject`) | Not CLR member model |
+| Delete member | `PythonDeleteMemberBinder`, slots |
+| Mid-run site invalidation | Generation counter on `PythonContext` |
+| `GetMember(MemberRequestKind, …)` only | **Not sufficient alone** — do not implement as sole hook |
+
+---
+
+## Dependency sketch
+
+```mermaid
+flowchart LR
+  T0[Task 0 Decisions]
+  T1[Task 1 Registration]
+  T2[Task 2 PythonOps dispatch]
+  T3[Task 3 Binder wrap]
+  T4[Task 4 DLR member id]
+  T5[Task 5 SlotTry]
+  T6[Task 6 Reflected runtime]
+  T7[Task 7 Fast paths]
+  T8[Task 8 Extensions]
+  T9[Task 9 Invoke audit]
+  T10[Task 10 Tests]
+
+  T0 --> T1 --> T2
+  T2 --> T3
+  T2 --> T5
+  T2 --> T7
+  T3 --> T4
+  T3 --> T8
+  T3 --> T9
+  T5 --> T6
+  T3 --> T10
+  T5 --> T10
+  T7 --> T10
+  T9 --> T10
+```
