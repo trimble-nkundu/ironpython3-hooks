@@ -110,6 +110,7 @@ namespace IronPython.Runtime.Types {
 
         internal override bool TryGetValue(CodeContext context, object instance, PythonType owner, out object value) {
             PerfTrack.NoteEvent(PerfTrack.Categories.Fields, this);
+            PythonOps.TryNotifyClrMemberAccessFromSlot(context, ClrMemberAccessKind.Get, this, instance);
             if (instance == null) {
                 value = _info.IsStatic ? _info.GetValue(null) : this;
             } else {
@@ -202,6 +203,7 @@ namespace IronPython.Runtime.Types {
                 PythonOps.Warn(context, PythonExceptions.RuntimeWarning, UpdateValueTypeFieldWarning, _info.Name, _info.DeclaringType.Name);
             }
 
+            PythonOps.TryNotifyClrMemberAccessFromSlot(context, ClrMemberAccessKind.Set, this, instance);
             _info.SetValue(instance, context.LanguageContext.Binder.Convert(val, _info.FieldType));
         }
 

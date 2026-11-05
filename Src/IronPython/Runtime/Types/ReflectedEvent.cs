@@ -33,6 +33,7 @@ namespace IronPython.Runtime.Types {
         internal override bool TryGetValue(CodeContext/*!*/ context, object instance, PythonType owner, out object value) {
             Assert.NotNull(context, owner);
 
+            PythonOps.TryNotifyClrMemberAccessFromSlot(context, ClrMemberAccessKind.Get, this, instance);
             value = new BoundEvent(this, instance, owner);
             return true;
         }

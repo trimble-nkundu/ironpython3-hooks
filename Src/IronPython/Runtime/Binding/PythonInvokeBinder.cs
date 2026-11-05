@@ -83,6 +83,14 @@ namespace IronPython.Runtime.Binding {
         }
 
         public override T BindDelegate<T>(CallSite<T> site, object[] args) {
+            if (_context.HasClrMemberAccessListener) {
+                // Task 9: skip fast invoke so slow bind runs CallMethod / notify hooks (mirrors Task 7 get policy).
+                PerfTrack.NoteEvent(PerfTrack.Categories.BindingSlow, "InvokeNoFast ClrMemberAccessListener");
+                var bound = this.LightBind<T>(args, Context.Options.CompilationThreshold);
+                CacheTarget(bound);
+                return bound;
+            }
+
             if (args[1] is IFastInvokable ifi) {
                 FastBindResult<T> res = ifi.MakeInvokeBinding(site, this, (CodeContext)args[0], ArrayUtils.ShiftLeft(args, 2));
                 if (res.Target != null) {

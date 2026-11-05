@@ -67,6 +67,7 @@ namespace IronPython.Runtime.Types {
                 }
             }
 
+            PythonOps.TryNotifyClrMemberAccessFromSlot(context, ClrMemberAccessKind.Set, this, instance);
             return CallSetter(context, context.LanguageContext.GetGenericCallSiteStorage(), instance, [], value);
         }
 
@@ -95,6 +96,7 @@ namespace IronPython.Runtime.Types {
         internal override bool TryGetValue(CodeContext context, object instance, PythonType owner, out object value) {
             PerfTrack.NoteEvent(PerfTrack.Categories.Properties, this);
 
+            PythonOps.TryNotifyClrMemberAccessFromSlot(context, ClrMemberAccessKind.Get, this, instance);
             value = CallGetter(context, owner, context.LanguageContext.GetGenericCallSiteStorage0(), instance);
             return true;
         }

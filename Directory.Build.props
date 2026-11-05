@@ -18,6 +18,7 @@
     <AssemblyFileRevision Condition="'$(ReleaseLevel)' == 'alpha'">000$(ReleaseSerial)</AssemblyFileRevision>
     <AssemblyFileRevision Condition="'$(ReleaseLevel)' == 'beta'">00$(ReleaseSerial)0</AssemblyFileRevision>
     <AssemblyFileRevision Condition="'$(ReleaseLevel)' == 'candidate'">0$(ReleaseSerial)00</AssemblyFileRevision>
+    <AssemblyFileRevision Condition="'$(ReleaseLevel)' == 'hooks'">9$(ReleaseSerial)00</AssemblyFileRevision>
     <AssemblyFileRevision Condition="'$(ReleaseLevel)' == 'final'">1000</AssemblyFileRevision>
 
     <Product>IronPython</Product>
@@ -38,6 +39,7 @@
     <ShortReleaseLevel Condition="'$(ReleaseLevel)' == 'alpha'">a</ShortReleaseLevel>
     <ShortReleaseLevel Condition="'$(ReleaseLevel)' == 'beta'">b</ShortReleaseLevel>
     <ShortReleaseLevel Condition="'$(ReleaseLevel)' == 'candidate'">rc</ShortReleaseLevel>
+    <ShortReleaseLevel Condition="'$(ReleaseLevel)' == 'hooks'">-hooks</ShortReleaseLevel>
     <ShortReleaseLevel Condition="'$(ReleaseLevel)' == 'final'">f</ShortReleaseLevel>
 
     <DisplayVersion>$(MajorVersion).$(MinorVersion).$(MicroVersion)</DisplayVersion>

@@ -76,6 +76,14 @@ namespace IronPython.Runtime.Binding {
         public override T BindDelegate<T>(CallSite<T> site, object[] args) {
             Debug.Assert(args[1].GetType() == typeof(CodeContext));
 
+            if (_context.HasClrMemberAccessListener) {
+                // v1 fast-path policy (Task 7): skip IronPython get fast delegates so slow DLR bind +
+                // PythonBinder / Reflected* notify paths run. No DLR changes; Option B (notify inside
+                // TieredJitPropertyGet / FastMethodGet / FastSlotGet) is a possible future optimization.
+                PerfTrack.NoteEvent(PerfTrack.Categories.BindingSlow, "GetNoFast ClrMemberAccessListener");
+                return base.BindDelegate<T>(site, args);
+            }
+
             if (args[0] is IFastGettable fastGet) {
                 T res = fastGet.MakeGetBinding<T>(site, this, (CodeContext)args[1], Name);
                 if (res != null) {
@@ -691,7 +699,7 @@ namespace IronPython.Runtime.Binding {
                 var extMethods = codeCtx.ModuleContext.ExtensionMethods;
 
                 if (extMethods != null) {
-                    // try again w/ the extension method binder
+                    // try again w/ the extension method binder (includes CLR member access notify when listener is on)
                     res = extMethods.GetBinder(context).GetMember(name, self, resolverFactory, isNoThrow, errorSuggestion);
                 }
 

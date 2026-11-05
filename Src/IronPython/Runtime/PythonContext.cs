@@ -145,6 +145,8 @@ namespace IronPython.Runtime {
         private readonly Microsoft.Scripting.Utils.ThreadLocal<PythonTracebackListener> _tracebackListeners = new Microsoft.Scripting.Utils.ThreadLocal<PythonTracebackListener>();
         private int _tracebackListenersCount;
 
+        private ClrMemberAccessEventHandler _clrMemberAccessListener;
+
         internal FunctionCode.CodeList _allCodes;
         internal readonly object _codeCleanupLock = new object();
         internal readonly object _codeUpdateLock = new object();
@@ -3907,6 +3909,47 @@ namespace IronPython.Runtime {
             var listener = _tracebackListeners.Value;
 
             return listener?.TraceObject;
+        }
+
+        /// <summary>
+        /// Registers a callback invoked when Python code gets, sets, or calls members on CLR objects.
+        /// Pass <c>null</c> to unregister.
+        /// </summary>
+        /// <remarks>
+        /// See <c>.cursor/plans/clr-member-access-callback-design.md</c> for scope, semantics (Get vs Call), and dedupe rules.
+        /// Register before running scripts when possible. Dynamic call sites that were already bound
+        /// may continue using cached rules until those code paths bind again.
+        /// While a listener is registered, CLR member get/set skips IronPython fast <c>BindDelegate</c> paths
+        /// and uses slow binding so notifications stay consistent (see fast-path policy in the plan).
+        /// </remarks>
+        public void SetClrMemberAccessListener(ClrMemberAccessEventHandler listener) {
+            lock (_codeUpdateLock) {
+                _clrMemberAccessListener = listener;
+            }
+        }
+
+        internal bool HasClrMemberAccessListener {
+            get {
+                lock (_codeUpdateLock) {
+                    return _clrMemberAccessListener != null;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Invokes the registered CLR member access listener. Used by runtime dispatch (see <c>PythonOps.NotifyClrMemberAccess</c>).
+        /// </summary>
+        internal void NotifyClrMemberAccess(ClrMemberAccessEventArgs e) {
+            if (e == null) {
+                throw new ArgumentNullException(nameof(e));
+            }
+
+            ClrMemberAccessEventHandler listener;
+            lock (_codeUpdateLock) {
+                listener = _clrMemberAccessListener;
+            }
+
+            listener?.Invoke(e);
         }
 
         #endregion

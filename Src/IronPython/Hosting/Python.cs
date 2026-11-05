@@ -239,6 +239,25 @@ namespace IronPython.Hosting {
         }
 
         /// <summary>
+        /// Registers a callback invoked when Python code gets, sets, or calls members on CLR objects.
+        /// Pass <c>null</c> to unregister. Prefer registering before running scripts; cached dynamic sites may not rebind.
+        /// See <c>.cursor/plans/clr-member-access-callback-design.md</c> in the repo for API semantics and dedupe rules.
+        /// </summary>
+        public static void SetClrMemberAccessListener(this ScriptEngine/*!*/ engine, ClrMemberAccessEventHandler listener) {
+            ContractUtils.RequiresNotNull(engine, nameof(engine));
+            GetPythonContext(engine).SetClrMemberAccessListener(listener);
+        }
+
+        /// <summary>
+        /// Registers a callback invoked when Python code gets, sets, or calls members on CLR objects.
+        /// Pass <c>null</c> to unregister. Prefer registering before running scripts; cached dynamic sites may not rebind.
+        /// See <c>.cursor/plans/clr-member-access-callback-design.md</c> in the repo for API semantics and dedupe rules.
+        /// </summary>
+        public static void SetClrMemberAccessListener(this ScriptRuntime/*!*/ runtime, ClrMemberAccessEventHandler listener) {
+            SetClrMemberAccessListener(GetEngine(runtime), listener);
+        }
+
+        /// <summary>
         /// Enables call tracing for the current thread for the Python engine in this ScriptRuntime.  
         /// 
         /// TracebackDelegate will be called back for each function entry, exit, exception, and line change.
