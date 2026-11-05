@@ -124,10 +124,33 @@ namespace IronPython.Runtime.Operations {
             }
 
             if (member == null) {
+                if (slot is BuiltinMethodDescriptor bmd && bmd.Template.Targets.Count > 0) {
+                    member = bmd.Template.Targets[0];
+                }
+            }
+
+            if (member == null) {
                 return;
             }
 
             NotifyClrMemberAccess(context, accessKind, member, instance, memberName);
+        }
+
+        internal static void TryNotifyClrMemberAccessFromSlot(
+            CodeContext context,
+            ClrMemberAccessKind accessKind,
+            PythonTypeSlot slot,
+            object instance) {
+
+            if (context == null || slot == null) {
+                return;
+            }
+
+            if (!context.LanguageContext.HasClrMemberAccessListener) {
+                return;
+            }
+
+            NotifyClrMemberAccess(context, accessKind, slot, instance);
         }
 
         internal static ClrMemberAccessEventArgs CreateClrMemberAccessEventArgs(

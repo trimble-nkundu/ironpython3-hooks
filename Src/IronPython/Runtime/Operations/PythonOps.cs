@@ -3063,11 +3063,21 @@ namespace IronPython.Runtime.Operations {
         #endregion
 
         public static bool SlotTryGetBoundValue(CodeContext/*!*/ context, PythonTypeSlot/*!*/ slot, object instance, PythonType owner, out object? value) {
-            return slot.TryGetValue(context, instance, owner, out value);
+            if (!slot.TryGetValue(context, instance, owner, out value)) {
+                return false;
+            }
+
+            TryNotifyClrMemberAccessFromSlot(context, ClrMemberAccessKind.Get, slot, instance);
+            return true;
         }
 
         public static bool SlotTryGetValue(CodeContext/*!*/ context, PythonTypeSlot/*!*/ slot, object instance, PythonType owner, out object? value) {
-            return slot.TryGetValue(context, instance, owner, out value);
+            if (!slot.TryGetValue(context, instance, owner, out value)) {
+                return false;
+            }
+
+            TryNotifyClrMemberAccessFromSlot(context, ClrMemberAccessKind.Get, slot, instance);
+            return true;
         }
 
         public static object? SlotGetValue(CodeContext/*!*/ context, PythonTypeSlot/*!*/ slot, object instance, PythonType owner) {
@@ -3079,7 +3089,12 @@ namespace IronPython.Runtime.Operations {
         }
 
         public static bool SlotTrySetValue(CodeContext/*!*/ context, PythonTypeSlot/*!*/ slot, object instance, PythonType owner, object value) {
-            return slot.TrySetValue(context, instance, owner, value);
+            if (!slot.TrySetValue(context, instance, owner, value)) {
+                return false;
+            }
+
+            TryNotifyClrMemberAccessFromSlot(context, ClrMemberAccessKind.Set, slot, instance);
+            return true;
         }
 
         public static object SlotSetValue(CodeContext/*!*/ context, PythonTypeSlot/*!*/ slot, object instance, PythonType owner, object value) {

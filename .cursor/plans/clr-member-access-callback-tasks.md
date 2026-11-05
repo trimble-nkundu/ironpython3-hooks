@@ -88,26 +88,15 @@ Implementation breakdown for [clr-member-access-callback-design.md](./clr-member
 
 ---
 
-## Task 5 — Slot path: `SlotTryGetValue` / `SlotTrySetValue`
+## Task 5 — Slot path: `SlotTryGetValue` / `SlotTrySetValue` ✅
 
 **Goal:** Reflected members reached via `PythonTypeSlot` and emitted `SlotTry*` calls notify at runtime.
 
 **Depends on:** Task 2
 
-**Deliverables:**
+**Dedupe with Task 3:** Slow DLR get/set prepends notify on `PythonBinder`; slot notify in `SlotTryGetValue` / `SlotTrySetValue` / `SlotTryGetBoundValue`. Paths usually disjoint; possible double notify if both in one rule — document idempotent hosts.
 
-- In `PythonOps.SlotTryGetValue` / `SlotTrySetValue` (and `SlotTryDeleteValue` if Delete in scope): after successful slot dispatch, if slot is `ReflectedField`, `ReflectedProperty`, or relevant descriptor, call `NotifyClrMemberAccess`
-
-**Key files:**
-
-- `Src/IronPython/Runtime/Operations/PythonOps.cs`
-- `Src/IronPython/Runtime/Types/ReflectedField.cs`, `ReflectedProperty.cs`
-
-**Acceptance criteria:**
-
-- Python access that compiles to slot path still fires callback (may overlap Task 3 — ensure no **double** notify; pick one path per access or idempotent host contract)
-
-**Note:** Coordinate with Task 3 to avoid duplicate events for the same operation.
+**Deliverables:** `TryNotifyClrMemberAccessFromSlot`; slot overload includes `BuiltinMethodDescriptor`; tests `ClrMemberAccessSlotPathTest.cs`
 
 ---
 
