@@ -12,6 +12,11 @@ using Microsoft.Scripting.Utils;
 using System.Diagnostics;
 
 namespace IronPython.Runtime.Binding {
+    /// <summary>
+    /// Resolves CLR extension methods from the module <see cref="ExtensionMethodSet"/>.
+    /// Dynamic get/set/call notify via inherited <see cref="PythonBinder"/> CLR member access wrapping
+    /// (slow bind through <see cref="PythonGetMemberBinder.FallbackWorker"/> when the main binder misses).
+    /// </summary>
     internal class PythonExtensionBinder : PythonBinder {
         private readonly ExtensionMethodSet _extMethodSet;
 

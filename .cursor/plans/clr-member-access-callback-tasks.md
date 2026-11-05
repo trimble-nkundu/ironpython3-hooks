@@ -122,24 +122,13 @@ Implementation breakdown for [clr-member-access-callback-design.md](./clr-member
 
 ---
 
-## Task 8 — Extension methods
+## Task 8 — Extension methods ✅
 
 **Goal:** CLR extension method get/call surfaces in callback.
 
 **Depends on:** Task 3 or Task 7
 
-**Deliverables:**
-
-- Hook when `PythonExtensionBinder` / module extension binder resolves member or call (mirror main binder wrapping or shared helper)
-
-**Key files:**
-
-- `Src/IronPython/Runtime/Binding/PythonExtensionBinder.cs`
-- `PythonGetMemberBinder.FallbackWorker` extension fallback
-
-**Acceptance criteria:**
-
-- Test with extension method on a type in `IronPythonTest` (add minimal extension if none exists)
+**Deliverables:** Extension retry via `PythonExtensionBinder` (inherits Task 3 notify wrap); MetaUserObject extension slots force slow get when listener on; tests `ClrMemberAccessExtensionTest.cs` in `IronPythonTest.ClrMemberAccess`.
 
 ---
 

@@ -699,7 +699,7 @@ namespace IronPython.Runtime.Binding {
                 var extMethods = codeCtx.ModuleContext.ExtensionMethods;
 
                 if (extMethods != null) {
-                    // try again w/ the extension method binder
+                    // try again w/ the extension method binder (includes CLR member access notify when listener is on)
                     res = extMethods.GetBinder(context).GetMember(name, self, resolverFactory, isNoThrow, errorSuggestion);
                 }
 

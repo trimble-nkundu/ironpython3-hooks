@@ -327,7 +327,8 @@ namespace IronPython.Runtime.Binding {
             protected override void MakeSlotAccess(PythonTypeSlot foundSlot, bool systemTypeResolution) {
                 _resolution += CompilerHelpers.GetType(foundSlot) + " ";
 
-                if (systemTypeResolution) {
+                if (systemTypeResolution ||
+                    (_extensionMethodRestriction && PythonContext.GetPythonContext(_binder).HasClrMemberAccessListener)) {
                     _bindingInfo.Body.FinishCondition(Fallback().Expression);
                 } else {
                     MakeSlotAccess(foundSlot);
@@ -577,6 +578,10 @@ namespace IronPython.Runtime.Binding {
             }
 
             protected override FastGetBase FinishRule() {
+                if (_extensionMethodRestriction && _binder.Context.HasClrMemberAccessListener) {
+                    return null;
+                }
+
                 GetMemberDelegates func;
                 if (_slot is ReflectedSlotProperty rsp) {
                     Debug.Assert(!_dictAccess); // properties for __slots__ are get/set descriptors so we should never access the dictionary.
