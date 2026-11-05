@@ -15,7 +15,7 @@ using Microsoft.Scripting.Hosting.Providers;
 
 using NUnit.Framework;
 
-namespace IronPythonTest {
+namespace IronPythonTest.ClrMemberAccess {
     public class ClrMemberAccessSlotPathTest {
         public class SlotProbe {
             public int ValueField = 7;

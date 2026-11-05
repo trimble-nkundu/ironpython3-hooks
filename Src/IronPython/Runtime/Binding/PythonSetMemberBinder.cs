@@ -46,7 +46,7 @@ namespace IronPython.Runtime.Binding {
 
         public override T BindDelegate<T>(CallSite<T> site, object[] args) {
             if (_context.HasClrMemberAccessListener) {
-                // Interim until Task 7: force slow DLR bind so PythonBinder notify wrappers run.
+                // v1 fast-path policy (Task 7): skip IronPython set fast delegates; see PythonGetMemberBinder.
                 PerfTrack.NoteEvent(PerfTrack.Categories.BindingSlow, "SetNoFast ClrMemberAccessListener");
                 return base.BindDelegate<T>(site, args);
             }

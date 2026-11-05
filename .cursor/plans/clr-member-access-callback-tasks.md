@@ -67,10 +67,8 @@ Implementation breakdown for [clr-member-access-callback-design.md](./clr-member
 **Deliverables:**
 
 - `PythonBinder.ClrMemberAccess.cs`: hide `GetMember` / `SetMember` / `Call` / `CallMethod`; prepend `NotifyClrMemberAccess` on success (skip errors, Python types, unmapped members; single-method `MethodGroup` only on get)
-- `PythonGetMemberBinder` / `PythonSetMemberBinder`: skip `BindDelegate` fast paths when listener registered
+- `PythonGetMemberBinder` / `PythonSetMemberBinder`: skip `BindDelegate` fast paths when listener registered (see Task 7)
 - Tests: `IronPythonTest/ClrMemberAccessSlowPathTest.cs` (`ClrMemberAccessProbe`)
-
-**Interim (until Task 7):** With a listener registered, get/set **always fall back to slow DLR binding** (fast `BindDelegate` paths are skipped). This guarantees notify coverage but is **not** the long-term performance story — Task 7 will either inject notify into fast delegates or document skipping as permanent policy.
 
 **Note:** Ambiguous overloads on get still skip notify; Task 4 / Task 9 can refine call identity.
 
@@ -110,29 +108,17 @@ Implementation breakdown for [clr-member-access-callback-design.md](./clr-member
 
 ---
 
-## Task 7 — Fast-path policy (`PythonGetMemberBinder` / `PythonSetMemberBinder`)
+## Task 7 — Fast-path policy (`PythonGetMemberBinder` / `PythonSetMemberBinder`) ✅
 
 **Goal:** Listener registered ⇒ fast delegates either notify or are skipped so behavior matches slow path.
 
 **Depends on:** Task 1 (`HasClrMemberAccessListener`), Task 2
 
-**Status:** Task 3 already applies **Option A** (force slow bind when listener is on). Task 7 is to **finalize** that choice vs Option B and document the performance tradeoff — not to leave “temporary slow-only” undocumented.
+**Decision (v1, no DLR changes):** **Option A** — skip IronPython fast `BindDelegate` get/set when `HasClrMemberAccessListener`; slow bind + existing notify hooks. Option B (notify inside fast delegates) deferred as future IronPython-only optimization.
 
-**Deliverables:**
+**Deliverables:** Finalized binder comments; `SetClrMemberAccessListener` remarks; design doc tradeoff; tests in `IronPythonTest.ClrMemberAccess` (`ClrMemberAccessFastPathPolicyTest.cs`, `ClrMemberAccessFastPathProbe`).
 
-- When listener active:
-  - **Option A (simpler):** `BindDelegate` skips fast paths, fall back to slow binding (may re-use Task 3 wrappers), **or**
-  - **Option B (faster):** inject `NotifyClrMemberAccess` into `TieredJitPropertyGet`, `FastMethodGet`, etc.
-- Document performance tradeoff
-
-**Key files:**
-
-- `Src/IronPython/Runtime/Binding/PythonGetMemberBinder.cs`
-- `Src/IronPython/Runtime/Binding/PythonSetMemberBinder.cs`
-
-**Acceptance criteria:**
-
-- With listener on, property get and method get fast paths fire exactly one notification per access (same as slow path tests)
+**Performance:** CLR get/set with listener registered pays slow-bind cost until Option B is implemented.
 
 ---
 

@@ -12,7 +12,7 @@ using Microsoft.Scripting.Hosting.Providers;
 
 using NUnit.Framework;
 
-namespace IronPythonTest {
+namespace IronPythonTest.ClrMemberAccess {
     public class ClrMemberAccessRegistrationTest {
         private class SampleTarget {
             public int ValueField;

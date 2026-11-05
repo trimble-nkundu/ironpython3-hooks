@@ -77,8 +77,9 @@ namespace IronPython.Runtime.Binding {
             Debug.Assert(args[1].GetType() == typeof(CodeContext));
 
             if (_context.HasClrMemberAccessListener) {
-                // Interim until Task 7: force slow DLR bind so PythonBinder notify wrappers run.
-                // Task 7 may inject notify into fast delegates instead and remove this early return.
+                // v1 fast-path policy (Task 7): skip IronPython get fast delegates so slow DLR bind +
+                // PythonBinder / Reflected* notify paths run. No DLR changes; Option B (notify inside
+                // TieredJitPropertyGet / FastMethodGet / FastSlotGet) is a possible future optimization.
                 PerfTrack.NoteEvent(PerfTrack.Categories.BindingSlow, "GetNoFast ClrMemberAccessListener");
                 return base.BindDelegate<T>(site, args);
             }

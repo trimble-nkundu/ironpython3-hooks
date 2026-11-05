@@ -15,7 +15,7 @@ using Microsoft.Scripting.Hosting.Providers;
 
 using NUnit.Framework;
 
-namespace IronPythonTest {
+namespace IronPythonTest.ClrMemberAccess {
     public class ClrMemberAccessDispatchTest {
         private class SampleTarget {
             public int ValueField = 1;

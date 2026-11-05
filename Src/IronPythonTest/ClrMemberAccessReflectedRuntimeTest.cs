@@ -15,7 +15,7 @@ using Microsoft.Scripting.Hosting.Providers;
 
 using NUnit.Framework;
 
-namespace IronPythonTest {
+namespace IronPythonTest.ClrMemberAccess {
     public class ClrMemberAccessReflectedRuntimeTest {
         public class RuntimeProbe {
             public int ValueField = 3;

@@ -13,7 +13,7 @@ using Microsoft.Scripting.Hosting;
 
 using NUnit.Framework;
 
-namespace IronPythonTest {
+namespace IronPythonTest.ClrMemberAccess {
     public class ClrMemberAccessProbe {
         public int Field = 1;
         public int Property { get; set; }
@@ -33,7 +33,7 @@ namespace IronPythonTest {
             engine.Execute(@"
 import clr
 clr.AddReference('IronPythonTest')
-from IronPythonTest import ClrMemberAccessProbe
+from IronPythonTest.ClrMemberAccess import ClrMemberAccessProbe
 probe = ClrMemberAccessProbe()
 ", scope);
 
@@ -63,7 +63,7 @@ _ = probe.M()
             engine.Execute(@"
 import clr
 clr.AddReference('IronPythonTest')
-from IronPythonTest import ClrMemberAccessProbe
+from IronPythonTest.ClrMemberAccess import ClrMemberAccessProbe
 probe = ClrMemberAccessProbe()
 _ = probe.Field
 ", scope);

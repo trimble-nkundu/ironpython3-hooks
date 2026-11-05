@@ -13,7 +13,7 @@ using Microsoft.Scripting.Hosting;
 
 using NUnit.Framework;
 
-namespace IronPythonTest {
+namespace IronPythonTest.ClrMemberAccess {
     public class ClrMemberAccessTrackerBase {
         public int ShadowField = 1;
     }
@@ -33,7 +33,7 @@ namespace IronPythonTest {
             engine.Execute(@"
 import clr
 clr.AddReference('IronPythonTest')
-from IronPythonTest import ClrMemberAccessTrackerDerived
+from IronPythonTest.ClrMemberAccess import ClrMemberAccessTrackerDerived
 obj = ClrMemberAccessTrackerDerived()
 _ = obj.ShadowField
 ", scope);
