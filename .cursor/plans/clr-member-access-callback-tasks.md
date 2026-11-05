@@ -76,28 +76,15 @@ Implementation breakdown for [clr-member-access-callback-design.md](./clr-member
 
 ---
 
-## Task 4 — DLR helper: member identity at bind time (optional but recommended)
+## Task 4 — DLR helper: member identity at bind time (deferred)
 
 **Goal:** Avoid guessing member from name string when wrapping expressions.
 
-**Depends on:** Task 3 (can start in parallel once wrapping approach is chosen)
+**Decision:** **No DLR changes.** Task 3 **`ResolveMemberTracker`** re-resolves via `GetMember(MemberRequestKind, Type, name)` after `base.GetMember` / `SetMember` (same heuristics as DefaultBinder member picking, but not guaranteed identical in all edge cases).
 
-**Deliverables:**
+**If needed later:** virtual `AdaptBoundMember*` hooks on `DefaultBinder` (upstream DLR diff) or expression-tree mining in IronPython only.
 
-- One of:
-  - Virtual hook on `DefaultBinder` that PythonBinder overrides, **or**
-  - Protected helper that returns `(DynamicMetaObject, MemberTracker)` from get/set bind paths, **or**
-  - Python-specific internal API on `GetMemberInfo` / `SetOrDeleteMemberInfo` pipeline
-- Minimal DLR diff; keep upstream-merge story in mind
-
-**Key files:**
-
-- `Src/DLR/Src/Microsoft.Dynamic/Actions/DefaultBinder.*.cs`
-- `Src/IronPython/Runtime/Binding/PythonBinder.cs`
-
-**Acceptance criteria:**
-
-- Task 3 wrappers receive exact `FieldTracker` / `PropertyTracker` / `MethodBase` for common cases (instance field get/set, property get/set, method call)
+**Tests:** `ClrMemberAccessTrackerBindingTest` checks re-resolve on `new`-hidden field (best-effort, not bind-time tracker proof).
 
 ---
 

@@ -121,6 +121,10 @@ namespace IronPython.Runtime.Binding {
                 notifyName);
         }
 
+        /// <summary>
+        /// Re-resolves the member via <see cref="GetMember(MemberRequestKind, Type, string)"/> after binding.
+        /// May not match the exact tracker DefaultBinder used in edge cases (see plan Task 4).
+        /// </summary>
         private DynamicMetaObject WrapClrMemberAccessForGetSet(
             string name,
             DynamicMetaObject target,

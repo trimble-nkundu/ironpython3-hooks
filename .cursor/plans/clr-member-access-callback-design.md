@@ -122,7 +122,7 @@ When a listener is active, wrap the returned `Expression` in a block that invoke
 
 **before** the real get/set/call. That yields **per-invocation** behavior for slow-path rules.
 
-A small DLR extension (virtual hook on `DefaultBinder`, or passing `MemberTracker` into a Python-specific wrapper) makes it easier to know **which** member was bound, not just the name string.
+A small DLR extension (virtual hook on `DefaultBinder`, or passing `MemberTracker` into a Python-specific wrapper) can make member-aware wrapping cleaner than inferring from name alone after the fact. **v1 uses re-resolve in `PythonBinder` only (no DLR delta).**
 
 ### 3. Secondary hooks (required for completeness)
 
