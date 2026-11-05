@@ -44,7 +44,7 @@ Implementation breakdown for [clr-member-access-callback-design.md](./clr-member
 
 ---
 
-## Task 2 — Central dispatch (`PythonOps`)
+## Task 2 — Central dispatch (`PythonOps`) ✅
 
 **Goal:** Single runtime entry point callable from expression trees and reflection paths.
 
@@ -52,20 +52,9 @@ Implementation breakdown for [clr-member-access-callback-design.md](./clr-member
 
 **Deliverables:**
 
-- `PythonOps.NotifyClrMemberAccess(...)` (or overloads) that:
-  - No-ops when no listener registered (fast check)
-  - Builds event args and invokes host callback
-  - Does not throw if callback throws (policy: document — mirror trace behavior or propagate)
-- Helpers to map `MemberInfo` / `MemberTracker` / slot types into `ClrMemberAccessEventArgs`
-
-**Key files:**
-
-- `Src/IronPython/Runtime/Operations/PythonOps.cs`
-- Types from Task 1
-
-**Acceptance criteria:**
-
-- Tests call `NotifyClrMemberAccess` directly with mock listener on `PythonContext`
+- `PythonOps.ClrMemberAccess.cs`: `NotifyClrMemberAccess` overloads (args, `MemberInfo`, `MemberTracker`, `PythonTypeSlot`); fast no-op when no listener
+- `CreateClrMemberAccessEventArgs` / `TryCreateClrMemberAccessEventArgs`; host callback exceptions propagate (documented)
+- Tests: `IronPythonTest/ClrMemberAccessDispatchTest.cs`
 
 ---
 
